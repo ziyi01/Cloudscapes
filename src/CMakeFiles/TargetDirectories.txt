@@ -1,0 +1,3 @@
+/mnt/c/Users/rejim/Documents/GitHub/Cloudscapes/src/CMakeFiles/Clouds.dir
+/mnt/c/Users/rejim/Documents/GitHub/Cloudscapes/src/CMakeFiles/edit_cache.dir
+/mnt/c/Users/rejim/Documents/GitHub/Cloudscapes/src/CMakeFiles/rebuild_cache.dir
