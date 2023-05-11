@@ -2,6 +2,7 @@
 #include <glm/glm.hpp>
 #include <SDL.h>
 #include "SDLauxiliary.h"
+#include "BeerLambert.h"
 #include <math.h>
 #include "TestModel.h"
 
@@ -276,3 +277,5 @@ void Draw()
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
+
+
