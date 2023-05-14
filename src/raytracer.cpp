@@ -5,6 +5,8 @@
 #include "BeerLambert.h"
 #include <math.h>
 #include "TestModel.h"
+#include "Textures.h"
+
 
 using namespace std;
 using glm::vec3;
@@ -69,6 +71,8 @@ int main( int argc, char* argv[] )
     vec3 c2 = vec3(0.0, 1.0, 0.0);
     vec3 c3 = vec3(0.0, 0.0, 1.0);
     R = mat3(c1, c2, c3);
+    Texture3D tex;
+    GenerateTexture3D(120, 120, 120);
 	
 	while( NoQuitMessageSDL() )
 	{
