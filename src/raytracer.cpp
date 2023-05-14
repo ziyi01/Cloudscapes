@@ -51,6 +51,8 @@ int sampleCount = 2;
 
 int counter = 0;
 
+
+Texture3D tex;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
@@ -71,11 +73,10 @@ int main( int argc, char* argv[] )
     vec3 c2 = vec3(0.0, 1.0, 0.0);
     vec3 c3 = vec3(0.0, 0.0, 1.0);
     R = mat3(c1, c2, c3);
-    Texture3D tex;
-    GenerateTexture3D(120, 120, 120);
-	
+    tex = GenerateTexture3D(50, 50, 50);
 	while( NoQuitMessageSDL() )
 	{
+        //break;
         Update();
 	    Draw();
 	}
@@ -253,15 +254,15 @@ void Draw()
 	{
 		for( int x=0; x<SCREEN_WIDTH; ++x )
 		{
-
             vec3 color( 0, 0, 0 );
 
-        
+            
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
             dir = R*dir;
             if(ClosestIntersection(cameraPos, dir, triangles, intrs)){
                 color = triangles[intrs.triangleIndex].color * (DirectLight(intrs) +  indirectLight);
             }
+            
             
         
            /*

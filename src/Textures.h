@@ -76,29 +76,40 @@ void generateWorleyNoise(Texture3D &tex) {
     // Generate random points within the texture boundaries
     std::vector<vec3> points(numPoints);
     for (int i = 0; i < numPoints; i++) {
-        points.push_back(generateRandomPoint(vec3(width, height, depth)));
+        points[i] = generateRandomPoint(vec3(width, height, depth));
+        std::cout << points[i].x << " " << points[i].y << " " << points[i].z << endl;
     }
 
+    std::cout << "-------------------------------------------" << endl << endl << endl;
+    float maximum = std::max(std::max(width, height), depth);
     // Traverse the texture and calculate the Worley noise for each texel
     for (int z = 0; z < depth; z++) {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                  
-                float minDistance = std::numeric_limits<float>::max();
-                  
-                
-                // Calculate the distance to the closest point
-                for (const vec3 point : points) {
-                    float distance = glm::distance(point, vec3(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
-                    
-                    if (distance < minDistance) {
-                        minDistance = distance;
+                float minDist = 999999999999;
+                for(int i = 0; i < numPoints; i++)
+                {
+                    float d = glm::distance(vec3(x, y, z), points[i]);
+                    if(d < minDist)
+                    {
+                        minDist = d;
                     }
                 }
 
-                //SetPixel(tex, vec3(x, y, z), minDistance);
-                
+                float d = minDist*2 / maximum;
+                d = 1-d;
+                if(d < 0)
+                {
+                    d = 0;
+                }
+                if(d > 1)
+                {
+                    d = 1;
+                }
+                std::cout << d << "-";
+                SetPixel(tex, vec3(x, y, z), d);
             }
+            std::cout << endl << "------------------------------------------------------------------"<< endl;
         }
     }
 
