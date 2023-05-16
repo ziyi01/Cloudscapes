@@ -91,69 +91,56 @@ float Distance(vec3 a, vec3 b){
     return sqrtf(dot(diff, diff));
 }
 
-// CREATE MY OWN INVERSE
-
-
-
-bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles, Intersection& closestIntersection){
+bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, const vec3 boundMax, float& tmin, float& tmax){
     
-    Intersection closest;
-    float minDist = FLT_MAX;
-    int index = 0;
-
-    vec3 v0;
-    vec3 v1;
-    vec3 v2;
-
-    vec3 e1;
-    vec3 e2;
+    // template: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection.html
     
-    for(Triangle triangle: triangles){
-        v0 = triangle.v0;
-        v1 = triangle.v1;
-        v2 = triangle.v2;
+    vec3 invdir;
+    invdir.x = 1 / dir.x;
+    invdir.y = 1 / dir.y;
+    invdir.z = 1 / dir.z;
 
-        // Specify the edges of the Triangle to construct a coordinate system aligned with the triangle
-        e1 = v1 - v0;
-        e2 = v2 - v0;
+    tmin = (boundMin.x - origin.x) * invdir.x;
+    tmax = (boundMax.x - origin.x) * invdir.x;
+    float tymin = (boundMin.y - origin.y) * invdir.y;
+    float tymax = (boundMax.y - origin.y) * invdir.y;
 
-        //
-        vec3 b = start - v0;
+    if ((tmin > tymax) || (tymin > tmax))
+        return false;
+    
+    vec3 t0 = (boundMin - origin) / dir;
+    vec3 t1 = (boundMax - origin) / dir;
 
-        // get the intersection between the plane of the triangle and the ray, by inserting the equation of the plane (6) 
-        // into the equation of the line, then solving the linear systems of equations
-        mat3 A( -dir, e1, e2 );
-        vec3 coords = glm::inverse( A ) * b;
-        
-        if(coords.y >= 0 && coords.z >= 0 && (coords.y + coords.z) <= 1 && coords.x >= 0){
-            
-            
-            // assign new closest
-            if( coords.x< minDist){
+    if (tymin > tmin)
+        tmin = tymin;
+    if (tymax < tmax)
+        tmax = tymax;
 
-                closestIntersection.position = start + dir*coords.x;
+    float tzmin = (boundMin.z - origin.z) * invdir.z;
+    float tzmax = (boundMax.z - origin.z) * invdir.z;
 
-                closestIntersection.triangleIndex = index;
-                closestIntersection.distance = coords.x;
-                minDist = coords.x;
-            }
+    if ((tmin > tzmax) || (tzmin > tmax))
+        return false;
+
+    if (tzmin > tmin)
+        tmin = tzmin;
+    if (tzmax < tmax)
+        tmax = tzmax;
+
+        float t = tmin;
+
+        if (t < 0) {
+            t = tmax;
+            if (t < 0) return false;
         }
 
-        index++;
-    }
-
-    if(minDist != FLT_MAX)
         return true;
 
-    return false;
 }
 
 
 
 vec3 DirectLight(const Intersection& i){
-
-
-
 
     // n is the normal of the triangle surface
     vec3 n = triangles[i.triangleIndex].normal;
@@ -215,7 +202,7 @@ void Update()
     }
     if( keystate[SDLK_LEFT] )
     {
-        rotationAngle += 0.1;
+        rotationAngle += 0.01;
         R[0][0] = cos(rotationAngle);
         R[0][2] = sin(rotationAngle);
         R[2][0] = -sin(rotationAngle);
@@ -223,7 +210,7 @@ void Update()
     }
     if( keystate[SDLK_RIGHT] )
     {
-        rotationAngle -= 0.1;
+        rotationAngle -= 0.01;
         R[0][0] = cos(rotationAngle);
         R[0][2] = sin(rotationAngle);
         R[2][0] = -sin(rotationAngle);
@@ -258,20 +245,19 @@ void Draw()
 
             
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
+
             dir = R*dir;
-            if(ClosestIntersection(cameraPos, dir, triangles, intrs)){
-                color = triangles[intrs.triangleIndex].color * (DirectLight(intrs) +  indirectLight);
+            float distToBox;
+            float distInsideBox;
+
+            vec3 boundsMin = vec3(130, 0, 65);
+            vec3 boundsMax = vec3(290, 165, 272);
+
+            if(BoxIntersection(cameraPos,dir,boundsMin,boundsMax, distToBox,distToExit)){
+                color = vec3(1,1,1);
+                vec3 entry = cameraPos + dir * distToBox;
+                vec3 exit = cameraPos + dir * distInsideBox;
             }
-            
-            
-        
-           /*
-            vec3 dir(x_off-SCREEN_WIDTH/2, y_off-SCREEN_HEIGHT/2, focalLength);
-                    dir = R*dir;
-            if(ClosestIntersection(cameraPos, dir, triangles, intrs)){
-                color = triangles[intrs.triangleIndex].color * (DirectLight(intrs) +  indirectLight);
-            }
-            */
             
 			PutPixelSDL( screen, x, y, color );
 		}
