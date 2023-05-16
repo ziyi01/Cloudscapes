@@ -58,7 +58,6 @@ Texture3D tex;
 
 void Update();
 void Draw();
-void ClosestIntersection();
 
 int main( int argc, char* argv[] )
 {
@@ -139,7 +138,7 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
 }
 
 
-
+/*
 vec3 DirectLight(const Intersection& i){
 
     // n is the normal of the triangle surface
@@ -181,7 +180,7 @@ vec3 DirectLight(const Intersection& i){
     
     return D;
 
-}
+}*/
 
 void Update()
 {
@@ -248,7 +247,7 @@ void Draw()
 
             dir = R*dir;
             float distToBox;
-            float distInsideBox;
+            float distToExit;
 
             vec3 boundsMin = vec3(130, 0, 65);
             vec3 boundsMax = vec3(290, 165, 272);
@@ -256,7 +255,7 @@ void Draw()
             if(BoxIntersection(cameraPos,dir,boundsMin,boundsMax, distToBox,distToExit)){
                 color = vec3(1,1,1);
                 vec3 entry = cameraPos + dir * distToBox;
-                vec3 exit = cameraPos + dir * distInsideBox;
+                vec3 exit = cameraPos + dir * distToExit;
             }
             
 			PutPixelSDL( screen, x, y, color );
