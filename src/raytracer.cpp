@@ -59,6 +59,7 @@ Texture3D tex;
 
 void Update();
 void Draw();
+float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit);
 
 int main( int argc, char* argv[] )
 {
@@ -252,6 +253,7 @@ void Draw()
 
             vec3 boundsMin = vec3(130, 0, 65);
             vec3 boundsMax = vec3(290, 165, 272);
+            vec3 scale = boundsMax - boundsMin;
 
             if(BoxIntersection(cameraPos,dir,boundsMin,boundsMax, distToBox,distToExit)){
                 color = vec3(1,1,1);

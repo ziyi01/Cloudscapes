@@ -40,4 +40,10 @@ float DensityLookup(Texture3D tex, vec3 scale, vec3 localposition)
 	return Tex3DLookup(tex, localposition/scale);
 }
 
+float GetTransmittance(float absorbance)
+{
+	return std::pow(10, -absorbance)
+}
+
+
 #endif

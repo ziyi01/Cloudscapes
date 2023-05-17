@@ -1,6 +1,5 @@
 file(REMOVE_RECURSE
   "CMakeFiles/Clouds.dir/raytracer.cpp.o"
-  "CMakeFiles/Clouds.dir/raytracer.cpp.o.d"
   "Clouds"
   "Clouds.pdb"
 )
