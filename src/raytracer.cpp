@@ -19,7 +19,7 @@ using glm::distance;
 
 const int SCREEN_WIDTH = 150;
 const int SCREEN_HEIGHT = 150;
-const int SAMPLE_STEP_SIZE = 0.1f;
+const float SAMPLE_STEP_SIZE = 0.2f;
 SDL_Surface* screen;
 int t;
 
@@ -53,13 +53,15 @@ int sampleCount = 2;
 int counter = 0;
 
 
-Texture3D tex;
+NoiseTexture3D tex;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
 void Update();
 void Draw();
-float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit);
+float GetTransmittance(float absorbance);
+float DensityLookup(vec3 scale, vec3 localposition);
+float Tex3DLookup (vec3 relativelocalpos);
 
 int main( int argc, char* argv[] )
 {
@@ -74,7 +76,7 @@ int main( int argc, char* argv[] )
     vec3 c2 = vec3(0.0, 1.0, 0.0);
     vec3 c3 = vec3(0.0, 0.0, 1.0);
     R = mat3(c1, c2, c3);
-    tex = GenerateTexture3D(50, 50, 50);
+    tex.GenerateTexture3D(25, 25, 25);
 	while( NoQuitMessageSDL() )
 	{
         //break;
@@ -232,6 +234,16 @@ void Update()
         lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 0.1f;
 }
 
+
+float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound, vec3 maxBound)
+{
+    vec3 localPosition = position - minBound;
+    float density = Tex3DLookup(localPosition/scale);
+    float beerLambertAbsorbance = BeerLambertIteration(density, 0.01f, SAMPLE_STEP_SIZE);
+    float henyeyGreenstein = 1;
+    return 0;
+}
+
 void Draw()
 {
     Intersection intrs;
@@ -255,18 +267,24 @@ void Draw()
             vec3 boundsMax = vec3(290, 165, 272);
             vec3 scale = boundsMax - boundsMin;
 
-            if(BoxIntersection(cameraPos,dir,boundsMin,boundsMax, distToBox,distToExit)){
+            if(BoxIntersection(cameraPos, dir, boundsMin, boundsMax, distToBox, distToExit)){
                 color = vec3(1,1,1);
                 vec3 entry = cameraPos + dir * distToBox;
                 vec3 exit = cameraPos + dir * distToExit;
                 
-                
                 float distance = glm::distance(entry, exit);
                 vec3 position = entry;
                 float absorbance = 0;
-                while (distance > 0)
+                for(int i = 0; i < 5; i++)
                 {
-                    absorbance += SampleAbsorbance(tex, dir, scale, entry, exit);
+                    if(distance < 0)
+                    {
+                        break;
+                        std::cout << "Out of bounds" << endl;
+                    }
+
+                    absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax);
+                    position += SAMPLE_STEP_SIZE*dir;
                     distance -= SAMPLE_STEP_SIZE;
                 }
                 float transmittance = GetTransmittance(absorbance);
@@ -284,13 +302,23 @@ void Draw()
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
 
-float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit)
-{
-    vec3 localPosition = exit-entry;
-    float density = DensityLookup(texture, scale, localPosition);
-    float beerLambertAbsorbance = BeerLambertIteration(density, 0.1f, SAMPLE_STEP_SIZE);
-    float henyeyGreenstein = 1;
-    return beerLambertAbsorbance * henyeyGreenstein;
+
+//Finds pixels in a 3D textures by looking at the object relative coordinates (ranging from 0 to 1)
+float Tex3DLookup (vec3 relativelocalpos)
+{	
+	vec3 pixelPosition((int)relativelocalpos.x * tex.width, 
+						(int)relativelocalpos.y * tex.height, 
+						(int)relativelocalpos.z * tex.depth);
+	return tex.GetPixel(pixelPosition);
 }
 
+//Get Tex3D opacity from Tex3D
+float DensityLookup(vec3 scale, vec3 localposition)
+{
+	return Tex3DLookup(localposition/scale);
+}
 
+float GetTransmittance(float absorbance)
+{
+	return std::pow(10, -absorbance);
+}
