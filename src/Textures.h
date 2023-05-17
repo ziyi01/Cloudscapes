@@ -43,7 +43,7 @@ class NoiseTexture3D
         int depth; 
         vector<float> data;
     
-    int PixelCoordToIndex(vec3 coordinate)
+    int PixelCoordToIndex(ivec3 coordinate)
     {
         int posX = coordinate.x;
         int posY = coordinate.y;
@@ -51,19 +51,19 @@ class NoiseTexture3D
         return coordinate.x + width*(coordinate.y + height*coordinate.z);
     }
 
-    bool ValidPixelCoordinate (vec3 coordinate)
+    bool ValidPixelCoordinate (ivec3 coordinate)
     {
         return (coordinate.x > 0) && (coordinate.x < width) &&
                 (coordinate.y > 0) && (coordinate.y < height) &&
                 (coordinate.z > 0) && (coordinate.z < depth);
     }
-    float GetPixel (vec3 coordinate)
+    float GetPixel (ivec3 coordinate)
     {
         if(!ValidPixelCoordinate(coordinate))
             return 0;
         return data[PixelCoordToIndex(coordinate)];
     }
-    void SetPixel (vec3 coordinate, float newValue)
+    void SetPixel (ivec3 coordinate, float newValue)
     {
         if(!ValidPixelCoordinate(coordinate))
             return;
@@ -82,7 +82,7 @@ class NoiseTexture3D
             std::cout << points[i].x << " " << points[i].y << " " << points[i].z << endl;
         }
 
-        std::cout << "-------------------------------------------" << endl << endl << endl;
+        //std::cout << "-------------------------------------------" << endl << endl << endl;
         float maximum = std::max(std::max(width, height), depth);
         // Traverse the texture and calculate the Worley noise for each texel
         for (int z = 0; z < depth; z++) {
@@ -108,10 +108,10 @@ class NoiseTexture3D
                     {
                         d = 1;
                     }
-                    std::cout << d << "-";
-                    SetPixel(vec3(x, y, z), d);
+                    //std::cout << d << "-";
+                    SetPixel(ivec3(x, y, z), d);
                 }
-                std::cout << endl << "------------------------------------------------------------------"<< endl;
+                //std::cout << endl << "------------------------------------------------------------------"<< endl;
             }
         }
     }

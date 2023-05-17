@@ -79,7 +79,6 @@ int main( int argc, char* argv[] )
     tex.GenerateTexture3D(25, 25, 25);
 	while( NoQuitMessageSDL() )
 	{
-        //break;
         Update();
 	    Draw();
 	}
@@ -193,7 +192,8 @@ void Update()
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
-
+    vec3 forward = R * vec3(0, 0, 1);
+    vec3 right = R * vec3(1, 0, 0);
     Uint8* keystate = SDL_GetKeyState( 0 );
     if( keystate[SDLK_UP] )
     {
@@ -237,11 +237,19 @@ void Update()
 
 float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound, vec3 maxBound)
 {
+    //std::cout << "------------------Debug for Absorbance sample------------------" << endl;
+    //std::cout << "Real position" << position.x << " " << position.y << " " << position.z << endl;
     vec3 localPosition = position - minBound;
-    float density = Tex3DLookup(localPosition/scale);
-    float beerLambertAbsorbance = BeerLambertIteration(density, 0.01f, SAMPLE_STEP_SIZE);
+    //std::cout << "Relative position" << localPosition.x << " " << localPosition.y << " " << localPosition.z << endl;
+    //std::cout << "Scale" << scale.x << " " << scale.y << " " << scale.z << endl;
+    localPosition = localPosition/scale;
+    //std::cout << "Local position" << localPosition.x << " " << localPosition.y << " " << localPosition.z << endl;
+    //std::cout << "---------------------------------------------------------------" << endl;
+
+    float density = Tex3DLookup(localPosition);
+    float beerLambertAbsorbance = BeerLambertIteration(density, 4.0f, SAMPLE_STEP_SIZE);
     float henyeyGreenstein = 1;
-    return 0;
+    return beerLambertAbsorbance;
 }
 
 void Draw()
@@ -255,37 +263,44 @@ void Draw()
 		for( int x=0; x<SCREEN_WIDTH; ++x )
 		{
             vec3 color( 0, 0, 0 );
-
             
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
-
             dir = R*dir;
+            dir = glm::normalize(dir);
             float distToBox;
             float distToExit;
 
-            vec3 boundsMin = vec3(130, 0, 65);
-            vec3 boundsMax = vec3(290, 165, 272);
+            vec3 boundsMin = vec3(-2, 0, 4);
+            vec3 boundsMax = vec3(2, 4, 8);
             vec3 scale = boundsMax - boundsMin;
 
             if(BoxIntersection(cameraPos, dir, boundsMin, boundsMax, distToBox, distToExit)){
                 color = vec3(1,1,1);
                 vec3 entry = cameraPos + dir * distToBox;
                 vec3 exit = cameraPos + dir * distToExit;
+                //std::cout << "---------------------------------------------------------------" << endl;
+                //std::cout << entry.x << " " << entry.y << " " << entry.z << endl;
+                //std::cout << exit.x << " " << exit.y << " " << exit.z << endl;
+                //std::cout << "---------------------------------------------------------------" << endl;
                 
                 float distance = glm::distance(entry, exit);
                 vec3 position = entry;
                 float absorbance = 0;
-                for(int i = 0; i < 5; i++)
+                
+                for(int i = 0; i < 100; i++)
                 {
-                    if(distance < 0)
+                    if(distance < 0||i >= 1)
                     {
                         break;
-                        std::cout << "Out of bounds" << endl;
                     }
-
                     absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax);
                     position += SAMPLE_STEP_SIZE*dir;
                     distance -= SAMPLE_STEP_SIZE;
+                }
+                
+                if(absorbance != 0)
+                {
+                    std::cout << "Absorbance: " << absorbance << endl;
                 }
                 float transmittance = GetTransmittance(absorbance);
                 color = vec3(transmittance, transmittance, transmittance);
@@ -306,10 +321,13 @@ void Draw()
 //Finds pixels in a 3D textures by looking at the object relative coordinates (ranging from 0 to 1)
 float Tex3DLookup (vec3 relativelocalpos)
 {	
-	vec3 pixelPosition((int)relativelocalpos.x * tex.width, 
-						(int)relativelocalpos.y * tex.height, 
-						(int)relativelocalpos.z * tex.depth);
-	return tex.GetPixel(pixelPosition);
+	ivec3 pixelPosition;
+    pixelPosition.x = relativelocalpos.x * tex.width;
+	pixelPosition.y	= relativelocalpos.y * tex.height;
+	pixelPosition.z = relativelocalpos.z * tex.depth;
+    float pix = tex.GetPixel(pixelPosition);
+    //cout << pixelPosition.x << " " << pixelPosition.y << " " << pixelPosition.z << endl << "********* " << pix << " **********"<< endl;
+	return pix;
 }
 
 //Get Tex3D opacity from Tex3D
