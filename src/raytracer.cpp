@@ -19,6 +19,7 @@ using glm::distance;
 
 const int SCREEN_WIDTH = 150;
 const int SCREEN_HEIGHT = 150;
+const int SAMPLE_STEP_SIZE = 0.1f;
 SDL_Surface* screen;
 int t;
 
