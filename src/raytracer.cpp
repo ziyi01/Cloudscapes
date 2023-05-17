@@ -258,7 +258,7 @@ void Draw()
                 vec3 entry = cameraPos + dir * distToBox;
                 vec3 exit = cameraPos + dir * distToExit;
                 
-                /*
+                
                 float distance = glm::distance(entry, exit);
                 vec3 position = entry;
                 float absorbance = 0;
@@ -269,7 +269,7 @@ void Draw()
                 }
                 float transmittance = GetTransmittance(absorbance);
                 color = vec3(transmittance, transmittance, transmittance);
-                */
+                
             }
             
 			PutPixelSDL( screen, x, y, color );
