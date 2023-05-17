@@ -256,6 +256,19 @@ void Draw()
                 color = vec3(1,1,1);
                 vec3 entry = cameraPos + dir * distToBox;
                 vec3 exit = cameraPos + dir * distToExit;
+                
+                /*
+                float distance = glm::distance(entry, exit);
+                vec3 position = entry;
+                float absorbance = 0;
+                while (distance > 0)
+                {
+                    absorbance += SampleAbsorbance(tex, dir, scale, entry, exit);
+                    distance -= SAMPLE_STEP_SIZE;
+                }
+                float transmittance = GetTransmittance(absorbance);
+                color = vec3(transmittance, transmittance, transmittance);
+                */
             }
             
 			PutPixelSDL( screen, x, y, color );
@@ -266,6 +279,15 @@ void Draw()
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+}
+
+float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit)
+{
+    vec3 localPosition = exit-entry;
+    float density = DensityLookup(texture, scale, localPosition);
+    float beerLambertAbsorbance = BeerLambertIteration(density, 0.1f, SAMPLE_STEP_SIZE);
+    float henyeyGreenstein = 1;
+    return beerLambertAbsorbance * henyeyGreenstein;
 }
 
 
