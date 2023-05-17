@@ -20,6 +20,7 @@ using glm::distance;
 const int SCREEN_WIDTH = 150;
 const int SCREEN_HEIGHT = 150;
 SDL_Surface* screen;
+const float SAMPLE_STEP_SIZE = 0.1f;
 int t;
 
 struct Intersection
@@ -58,7 +59,7 @@ Texture3D tex;
 
 void Update();
 void Draw();
-void ClosestIntersection();
+float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit);
 
 int main( int argc, char* argv[] )
 {
@@ -256,11 +257,30 @@ void Draw()
 		{
             vec3 color( 0, 0, 0 );
 
-            
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
             dir = R*dir;
-            if(ClosestIntersection(cameraPos, dir, triangles, intrs)){
-                color = triangles[intrs.triangleIndex].color * (DirectLight(intrs) +  indirectLight);
+            float distToBox;
+            float distToExit;
+
+            vec3 boundsMin = vec3(130, 0, 65);
+            vec3 boundsMax = vec3(290, 165, 272);
+            vec3 scale = boundsMax - boundsMin;
+
+            if(BoxIntersection(cameraPos, dir, boundsMin, boundsMax, distToBox,distToExit)){
+                color = vec3(1,1,1);
+                vec3 entry = cameraPos + dir * distToBox;
+                vec3 exit = cameraPos + dir * distToExit;
+                
+                float distance = glm::distance(entry, exit);
+                vec3 position = entry;
+                float absorbance = 0;
+                while (distance > 0)
+                {
+                    absorbance += SampleAbsorbance(tex, dir, scale, entry, exit);
+                    distance -= SAMPLE_STEP_SIZE;
+                }
+                float transmittance = GetTransmittance(absorbance);
+                color = vec3(transmittance, transmittance, transmittance);
             }
             
             
@@ -281,6 +301,14 @@ void Draw()
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+}
+
+float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit)
+{
+    vec3 localPosition = exit-entry;
+    float density = DensityLookup(texture, scale, localPosition);
+    float BeerLambertAbsorbance = BeerLambertIteration(density, 0.1f, SAMPLE_STEP_SIZE);
+    return BeerLambertAbsorbance;
 }
 
 
