@@ -4,9 +4,9 @@
 #include "SDLauxiliary.h"
 #include "BeerLambert.h"
 #include <math.h>
-#include "TestModel.h"
+#include "CloudModel.h"
 #include "Textures.h"
-
+#include "Henyey.h"
 
 using namespace std;
 using glm::vec3;
@@ -43,8 +43,8 @@ vec3 lightPos( 0, -0.5, -0.7 );
 vec3 lightColor = 14.f * vec3( 1, 1, 1 );
 float radius = 200;
 
-// Inderect lighting
-vec3 indirectLight = 0.5f*vec3( 1, 1, 1 );
+// Indirect lighting
+vec3 indirectLight = 0.5f*vec3( 1, 1, 1 ); // TODO: Replace this with Henyey
 
 // Anti Aliasing
 int sampleCount = 2;
@@ -150,7 +150,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 
 
 
-vec3 DirectLight(const Intersection& i){
+float Light(const Intersection& i, vec3 rayDir){
 
 
 
@@ -171,10 +171,10 @@ vec3 DirectLight(const Intersection& i){
         Distance(lightPos, closest.position) +0.01 < Distance(lightPos, i.position) &&
         closest.triangleIndex != i.triangleIndex )
     {
-        vec3 zero(0,0,0);
-        return zero;
+        return 0;
         
     }
+
 
     // The surface area of the sphere
     float A = 4*M_PI*glm::length(r)*glm::length(r);
@@ -182,7 +182,6 @@ vec3 DirectLight(const Intersection& i){
     // the power per area (W/m^2)
     vec3 B = lightColor / A;
 
-    // AAA dotn understand entirely
     float nr = dot(r,n);
 
     vec3 D;
@@ -192,8 +191,9 @@ vec3 DirectLight(const Intersection& i){
         D = B * 0.0f;
     }
     
-    return D;
+    //return D;
 
+   return InOutScatter(lightDir, rayDir);
 }
 
 void Update()
@@ -260,18 +260,8 @@ void Draw()
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
             dir = R*dir;
             if(ClosestIntersection(cameraPos, dir, triangles, intrs)){
-                color = triangles[intrs.triangleIndex].color * (DirectLight(intrs) +  indirectLight);
+                color = triangles[intrs.triangleIndex].color * Light(intrs, dir) +  indirectLight;
             }
-            
-            
-        
-           /*
-            vec3 dir(x_off-SCREEN_WIDTH/2, y_off-SCREEN_HEIGHT/2, focalLength);
-                    dir = R*dir;
-            if(ClosestIntersection(cameraPos, dir, triangles, intrs)){
-                color = triangles[intrs.triangleIndex].color * (DirectLight(intrs) +  indirectLight);
-            }
-            */
             
 			PutPixelSDL( screen, x, y, color );
 		}
@@ -283,4 +273,32 @@ void Draw()
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
 
+// Scattering Functions
+float InOutScatter(vec3 r_dir, vec3 s_dir) {
+    // g - [-1,+1] preferred scattering direction.
+    // g > 0 is forward scattering dominant
+    // g = 0 is sideways dominant
+    // g < 0 is backwards scattering dominant
+    float g = 0.5; 
+    float w_x = 0.5;  // Distribution of weight, sum of w_i = 1
+    float theta = AngleSunRay(r_dir, s_dir);
 
+    return w_x*Henyey(theta,g) + (1-w_x)*Henyey(theta,g);
+}
+
+float AngleSunRay(vec3 r_dir, vec3 s_dir) {
+    // Dot angle between ray from camera and sun light direction
+    return acos(dot(r_dir,s_dir)/(length(r_dir)*length(s_dir)));
+}
+
+/**
+ * @brief Single particle scattering events based on Mie theory
+ * 
+ * @param theta - Phase angle between incoming and outgoing directions
+ */
+float Henyey(float theta, float g) { // Adjust g to add more scattering
+    float my = cos(theta);
+    float g2 = g*g;
+    float hg = ((1 - g2) / (4 * M_PI * pow(1 + g2 - (2 * g * my), 3/2)));
+    return hg;
+}
