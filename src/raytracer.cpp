@@ -19,7 +19,7 @@ using glm::length;
 
 const int SCREEN_WIDTH = 150;
 const int SCREEN_HEIGHT = 150;
-const float SAMPLE_STEP_SIZE = 0.2f;
+const float SAMPLE_STEP_SIZE = 2.0f;
 SDL_Surface* screen;
 int t;
 
@@ -52,7 +52,7 @@ int sampleCount = 2;
 int counter = 0;
 
 NoiseTexture3D tex;
-vec3 boundsMin = vec3(130, 0, 65);
+vec3 boundsMin = vec3(130, -40, 65);
 vec3 boundsMax = vec3(290, 165, 272);
 // ----------------------------------------------------------------------------
 // FUNCTIONS
@@ -235,7 +235,7 @@ float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound
     //std::cout << "---------------------------------------------------------------" << endl;
 
     float density = Tex3DLookup(localPosition);
-    float beerLambertAbsorbance = BeerLambertIteration(density, 4.0f, SAMPLE_STEP_SIZE);
+    float beerLambertAbsorbance = BeerLambertIteration(density, 0.005f, SAMPLE_STEP_SIZE);
     float sun = Phase(direction, localPosition);
     return beerLambertAbsorbance * sun;
 }
@@ -274,11 +274,13 @@ void Draw()
                 
                 for(int i = 0; i < 100; i++)
                 {
-                    if(distance < 0||i >= 1)
+                    if(distance < 0)
                     {
+                        //cout << "i: " << i << endl;
                         break;
                     }
                     absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax);
+
                     position += SAMPLE_STEP_SIZE*dir;
                     distance -= SAMPLE_STEP_SIZE;
                 }
@@ -287,10 +289,12 @@ void Draw()
                 {
                     //std::cout << "Absorbance: " << absorbance << endl;
                 }
+
                 float transmittance = GetTransmittance(absorbance);
                 color += color*(1-transmittance);
                 
             }
+            
             
 			PutPixelSDL( screen, x, y, color );
 		}
