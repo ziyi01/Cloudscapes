@@ -5,13 +5,14 @@
 #include <math.h>
 #include "CloudModel.h"
 #include "Textures.h"
-#include "Henyey.h"
 
 using namespace std;
 using glm::vec3;
 using glm::mat3;
 using glm::dot;
 using glm::distance;
+using glm::acos;
+using glm::length;
 
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -59,9 +60,9 @@ Texture3D tex;
 void Update();
 void Draw();
 float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit);
-float Henyey(vec3 r_dir, vec3 position);
+float Henyey(float theta, float g);
 float AngleSunRay(vec3 r_dir, vec3 s_dir);
-float Phase(float theta, float g);
+float Phase(vec3 r_dir, vec3 position);
 float Ambience(vec3 position, float e);
 
 int main( int argc, char* argv[] )
@@ -259,10 +260,10 @@ float Phase(vec3 r_dir, vec3 position) {
     float g2 = -0.2;
     float w_1 = 0.7;  // Distribution of weight, sum of w_i = 1
     float w_2 = 0.3;
-    float theta = AngleSunRay(r_dir, s_dir);
+    float theta = AngleSunRay(r_dir, lightDir);
     
     // Implement extinction
-    return (w_1*Henyey(theta,g1)+w_2*Henyey(theta,g2)) * lightColor; // Accumulate functions to fitted scattering
+    return (w_1*Henyey(theta,g1)+w_2*Henyey(theta,g2)); // Accumulate functions to fitted scattering
 }
 
 float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit)
@@ -275,7 +276,7 @@ float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entr
 }
 
 float Ambience(vec3 position, float e) {
-    float height = boundMax.y-position.y;
+    float height = boundsMax.y-position.y;
     // Assume equal density of ambient lighting
 }
 
