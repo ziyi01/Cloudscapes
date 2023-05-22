@@ -106,10 +106,28 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
     invdir.y = 1 / dir.y;
     invdir.z = 1 / dir.z;
 
-    tmin = (boundMin.x - origin.x) * invdir.x;
-    tmax = (boundMax.x - origin.x) * invdir.x;
-    float tymin = (boundMin.y - origin.y) * invdir.y;
-    float tymax = (boundMax.y - origin.y) * invdir.y;
+    
+
+    if(invdir.x >= 0) {
+        tmin = (boundMin.x - origin.x) * invdir.x;
+        tmax = (boundMax.x - origin.x) * invdir.x;
+    }
+    else {
+        tmin = (boundMax.x - origin.x) * invdir.x;
+        tmax = (boundMax.x - origin.x) * invdir.x;
+    }
+
+    float tymin;
+    float tymax;
+
+    if(invdir.y >= 0){
+        tymin = (boundMin.y - origin.y) * invdir.y;
+        tymax = (boundMax.y - origin.y) * invdir.y;
+    }
+    else{
+        tymin = (boundMax.y - origin.y) * invdir.y;
+        tymax = (boundMin.y - origin.y) * invdir.y;
+    }
 
     if ((tmin > tymax) || (tymin > tmax))
         return false;
@@ -122,8 +140,19 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
     if (tymax < tmax)
         tmax = tymax;
 
-    float tzmin = (boundMin.z - origin.z) * invdir.z;
-    float tzmax = (boundMax.z - origin.z) * invdir.z;
+
+    float tzmin;
+    float tzmax;
+
+    if(invdir.z >= 0){
+        tzmin = (boundMin.z - origin.z) * invdir.z;
+        tzmax = (boundMax.z - origin.z) * invdir.z;
+    }
+    else{
+        tzmin = (boundMax.z - origin.z) * invdir.z;
+        tzmax = (boundMin.z - origin.z) * invdir.z;
+    }
+    
 
     if ((tmin > tzmax) || (tzmin > tmax))
         return false;
@@ -156,15 +185,15 @@ void Update()
     Uint8* keystate = SDL_GetKeyState( 0 );
     if( keystate[SDLK_UP] )
     {
-        cameraPos += vec3(R[2][0], R[2][1], R[2][2]) * 0.1f;
+        cameraPos += vec3(R[2][0], R[2][1], R[2][2]) * 2.0f;
     }
     if( keystate[SDLK_DOWN] )
     {
-        cameraPos -= vec3(R[2][0], R[2][1], R[2][2]) * 0.1f;
+        cameraPos -= vec3(R[2][0], R[2][1], R[2][2]) * 2.0f;
     }
     if( keystate[SDLK_LEFT] )
     {
-        rotationAngle += 0.01;
+        rotationAngle += 0.05;
         R[0][0] = cos(rotationAngle);
         R[0][2] = sin(rotationAngle);
         R[2][0] = -sin(rotationAngle);
@@ -172,7 +201,7 @@ void Update()
     }
     if( keystate[SDLK_RIGHT] )
     {
-        rotationAngle -= 0.01;
+        rotationAngle -= 0.05;
         R[0][0] = cos(rotationAngle);
         R[0][2] = sin(rotationAngle);
         R[2][0] = -sin(rotationAngle);
@@ -221,7 +250,7 @@ void Draw()
 	{
 		for( int x=0; x<SCREEN_WIDTH; ++x )
 		{
-            vec3 color( 0, 0, 0 );
+            vec3 color( 0.7, 0.8, 0.9);
             
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
             dir = R*dir;
@@ -231,7 +260,7 @@ void Draw()
             vec3 scale = boundsMax - boundsMin;
 
             if(BoxIntersection(cameraPos, dir, boundsMin, boundsMax, distToBox, distToExit)){
-                color = vec3(1,1,1);
+               
                 vec3 entry = cameraPos + dir * distToBox;
                 vec3 exit = cameraPos + dir * distToExit;
                 //std::cout << "---------------------------------------------------------------" << endl;
@@ -256,10 +285,10 @@ void Draw()
                 
                 if(absorbance != 0)
                 {
-                    std::cout << "Absorbance: " << absorbance << endl;
+                    //std::cout << "Absorbance: " << absorbance << endl;
                 }
                 float transmittance = GetTransmittance(absorbance);
-                color = vec3(transmittance, transmittance, transmittance);
+                color += color*(1-transmittance);
                 
             }
             
