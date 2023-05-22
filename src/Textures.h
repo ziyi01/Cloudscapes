@@ -53,9 +53,9 @@ class NoiseTexture3D
 
     bool ValidPixelCoordinate (ivec3 coordinate)
     {
-        return (coordinate.x > 0) && (coordinate.x < width) &&
-                (coordinate.y > 0) && (coordinate.y < height) &&
-                (coordinate.z > 0) && (coordinate.z < depth);
+        return (coordinate.x >= 0) && (coordinate.x < width) &&
+                (coordinate.y >= 0) && (coordinate.y < height) &&
+                (coordinate.z >= 0) && (coordinate.z < depth);
     }
     float GetPixel (ivec3 coordinate)
     {
