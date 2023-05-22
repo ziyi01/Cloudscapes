@@ -62,7 +62,6 @@ void Draw();
 float GetTransmittance(float absorbance);
 float DensityLookup(vec3 scale, vec3 localposition);
 float Tex3DLookup (vec3 relativelocalpos);
-float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit);
 float Henyey(float theta, float g);
 float AngleSunRay(vec3 r_dir, vec3 s_dir);
 float Phase(vec3 r_dir, vec3 position);
