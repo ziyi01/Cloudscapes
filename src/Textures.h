@@ -52,18 +52,27 @@ int PixelCoordToIndex(Texture3D tex, vec3 coordinate)
 	return coordinate.x + tex.width*(coordinate.y + tex.height*coordinate.z);
 }
 
+bool ValidPixelCoordinate (Texture3D tex, vec3 coordinate)
+{
+    return (coordinate.x > 0) && (coordinate.x < tex.width) &&
+            (coordinate.y > 0) && (coordinate.y < tex.height) &&
+            (coordinate.z > 0) && (coordinate.z < tex.depth);
+}
 
 float GetPixel (Texture3D tex, vec3 coordinate)
 {
+    if(!ValidPixelCoordinate(tex, coordinate))
+        return 0;
 	return tex.data[PixelCoordToIndex(tex, coordinate)];
 }
 
 void SetPixel (Texture3D &tex, vec3 coordinate, float newValue)
 {
+    if(!ValidPixelCoordinate(tex, coordinate))
+        return;
 	int index = PixelCoordToIndex(tex, coordinate);
 	tex.data[index] = newValue;
 }
-
 
 
 void generateWorleyNoise(Texture3D &tex) {
