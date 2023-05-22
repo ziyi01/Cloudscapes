@@ -12,6 +12,6 @@ using glm::dot;
 
 // ----------------------------------------------------------------------------
 // FUNCTION DECLARATIONS
-float InOutScatter(vec3 r_dir, vec3 s_dir);
+float Henyey(vec3 r_dir, vec3 s_dir);
 float AngleSunRay(vec3 r_dir, vec3 s_dir);
-float Henyey(float theta, float g);
+float Phase(float theta, float g);

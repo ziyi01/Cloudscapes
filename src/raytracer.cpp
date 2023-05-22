@@ -138,51 +138,6 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
 
 }
 
-
-
-float Light(const Intersection& i, vec3 rayDir){
-
-    // n is the normal of the triangle surface
-    vec3 n = triangles[i.triangleIndex].normal;
-
-    // r is the vector from the surface point to the light source
-    vec3 r =  lightPos - i.position;
-
-    // lightDir is the vector from the surface point to the light source
-    vec3 lightDir = (i.position - lightPos);
-
-    //evaluate if shadow
-    Intersection closest;
-
-    if( ClosestIntersection(lightPos, lightDir, triangles, closest) && 
-        Distance(lightPos, closest.position) +0.01 < Distance(lightPos, i.position) &&
-        closest.triangleIndex != i.triangleIndex )
-    {
-        return 0;
-        
-    }
-
-
-    // The surface area of the sphere
-    float A = 4*M_PI*glm::length(r)*glm::length(r);
-    
-    // the power per area (W/m^2)
-    vec3 B = lightColor / A;
-
-    float nr = dot(r,n);
-
-    vec3 D;
-    if(nr > 0){
-        D = B * nr;
-    }else {
-        D = B * 0.0f;
-    }
-    
-    //return D;
-
-   return InOutScatter(lightDir, rayDir);
-}
-
 void Update()
 {
 	// Compute frame time:
@@ -284,7 +239,14 @@ void Draw()
 }
 
 // Scattering Functions
-float InOutScatter(vec3 r_dir, vec3 s_dir) {
+/**
+ * @brief 
+ * 
+ * @param r_dir Ray tracer direction
+ * @param s_dir Sun/Light source direction
+ * @return float 
+ */
+float Henyey(vec3 r_dir, vec3 s_dir) {
     // g - [-1,+1] preferred scattering direction.
     // g > 0 is forward scattering dominant
     // g = 0 is sideways dominant
@@ -293,7 +255,7 @@ float InOutScatter(vec3 r_dir, vec3 s_dir) {
     float w_x = 0.5;  // Distribution of weight, sum of w_i = 1
     float theta = AngleSunRay(r_dir, s_dir);
     
-    return w_x*Henyey(theta,g) + (1-w_x)*Henyey(theta,g);
+    return w_x*Phase(theta,g) + (1-w_x)*Phase(theta,g);
 }
 
 float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit)
@@ -301,7 +263,7 @@ float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entr
     vec3 localPosition = exit-entry;
     float density = DensityLookup(texture, scale, localPosition);
     float beerLambertAbsorbance = BeerLambertIteration(density, 0.1f, SAMPLE_STEP_SIZE);
-    float henyeyGreenstein = 1;
+    float henyeyGreenstein = Henyey(direction, lightPos);
     return beerLambertAbsorbance * henyeyGreenstein;
 }
 
@@ -315,7 +277,7 @@ float AngleSunRay(vec3 r_dir, vec3 s_dir) {
  * 
  * @param theta - Phase angle between incoming and outgoing directions
  */
-float Henyey(float theta, float g) { // Adjust g to add more scattering
+float Phase(float theta, float g) { // Adjust g to add more scattering
     float my = cos(theta);
     float g2 = g*g;
     float hg = ((1 - g2) / (4 * M_PI * pow(1 + g2 - (2 * g * my), 3/2)));
