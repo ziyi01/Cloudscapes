@@ -17,8 +17,8 @@ using glm::length;
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 
-const int SCREEN_WIDTH = 150;
-const int SCREEN_HEIGHT = 150;
+const int SCREEN_WIDTH = 300;
+const int SCREEN_HEIGHT = 300;
 const float SAMPLE_STEP_SIZE = 0.2f;
 SDL_Surface* screen;
 int t;
@@ -38,13 +38,11 @@ vec3 cameraPos( 0,0,-2);
 mat3 R;
 float rotationAngle = 0;
 
-// 5. Illumination variables
+// Illumination variables
 vec3 lightPos( 0, -0.5, -0.7 );
-vec3 lightColor = 14.f * vec3( 1, 1, 1 );
+float lightBrightness = 0.2;
 float radius = 200;
-
-// Indirect lighting
-vec3 indirectLight = 0.5f*vec3( 1, 1, 1 );
+float ambientLight = 0.6;
 
 // Anti Aliasing
 int sampleCount = 2;
@@ -65,7 +63,6 @@ float Tex3DLookup (vec3 relativelocalpos);
 float Henyey(float theta, float g);
 float AngleSunRay(vec3 r_dir, vec3 s_dir);
 float Phase(vec3 r_dir, vec3 position);
-float Ambience(vec3 position, float e);
 
 int main( int argc, char* argv[] )
 {
@@ -236,8 +233,8 @@ float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound
 
     float density = Tex3DLookup(localPosition);
     float beerLambertAbsorbance = BeerLambertIteration(density, 4.0f, SAMPLE_STEP_SIZE);
-    float sun = Phase(direction, localPosition);
-    return beerLambertAbsorbance * sun;
+    float phase = Phase(direction, localPosition);
+    return beerLambertAbsorbance * phase;
 }
 
 void Draw()
@@ -260,7 +257,6 @@ void Draw()
             vec3 scale = boundsMax - boundsMin;
 
             if(BoxIntersection(cameraPos, dir, boundsMin, boundsMax, distToBox, distToExit)){
-               
                 vec3 entry = cameraPos + dir * distToBox;
                 vec3 exit = cameraPos + dir * distToExit;
                 //std::cout << "---------------------------------------------------------------" << endl;
@@ -274,7 +270,7 @@ void Draw()
                 
                 for(int i = 0; i < 100; i++)
                 {
-                    if(distance < 0||i >= 1)
+                    if(distance < 0 || i >= 1)
                     {
                         break;
                     }
@@ -289,7 +285,6 @@ void Draw()
                 }
                 float transmittance = GetTransmittance(absorbance);
                 color += color*(1-transmittance);
-                
             }
             
 			PutPixelSDL( screen, x, y, color );
@@ -339,19 +334,14 @@ float Phase(vec3 r_dir, vec3 position) {
     // g = 0 is sideways dominant
     // g < 0 is backwards scattering dominant
     vec3 lightDir = lightPos-position;
-    float g1 = 0.8; 
-    float g2 = -0.2;
+    float g1 = 0.899f; // Forward 
+    float g2 = -0.3f; // Back
     float w_1 = 0.7;  // Distribution of weight, sum of w_i = 1
     float w_2 = 0.3;
     float theta = AngleSunRay(r_dir, lightDir);
     
     // Implement extinction
-    return (w_1*Henyey(theta,g1)+w_2*Henyey(theta,g2)); // Accumulate functions to fitted scattering
-}
-
-float Ambience(vec3 position, float e) {
-    float height = boundsMax.y-position.y;
-    // Assume equal density of ambient lighting
+    return lightBrightness * ((w_1*Henyey(theta,g1)) + (w_2*Henyey(theta,g2))) + ambientLight; // Accumulate functions to fitted scattering
 }
 
 float AngleSunRay(vec3 r_dir, vec3 s_dir) {
