@@ -19,7 +19,7 @@ using glm::length;
 
 const int SCREEN_WIDTH = 150;
 const int SCREEN_HEIGHT = 150;
-const int SAMPLE_STEP_SIZE = 0.1f;
+const float SAMPLE_STEP_SIZE = 0.2f;
 SDL_Surface* screen;
 int t;
 
@@ -51,14 +51,17 @@ int sampleCount = 2;
 
 int counter = 0;
 
+NoiseTexture3D tex;
 vec3 boundsMin = vec3(130, 0, 65);
 vec3 boundsMax = vec3(290, 165, 272);
-Texture3D tex;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
 void Update();
 void Draw();
+float GetTransmittance(float absorbance);
+float DensityLookup(vec3 scale, vec3 localposition);
+float Tex3DLookup (vec3 relativelocalpos);
 float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit);
 float Henyey(float theta, float g);
 float AngleSunRay(vec3 r_dir, vec3 s_dir);
@@ -78,7 +81,7 @@ int main( int argc, char* argv[] )
     vec3 c2 = vec3(0.0, 1.0, 0.0);
     vec3 c3 = vec3(0.0, 0.0, 1.0);
     R = mat3(c1, c2, c3);
-    tex = GenerateTexture3D(50, 50, 50);
+    tex.GenerateTexture3D(25, 25, 25);
 	while( NoQuitMessageSDL() )
 	{
         Update();
@@ -149,7 +152,8 @@ void Update()
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
-
+    vec3 forward = R * vec3(0, 0, 1);
+    vec3 right = R * vec3(1, 0, 0);
     Uint8* keystate = SDL_GetKeyState( 0 );
     if( keystate[SDLK_UP] )
     {
@@ -190,6 +194,24 @@ void Update()
         lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 0.1f;
 }
 
+
+float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound, vec3 maxBound)
+{
+    //std::cout << "------------------Debug for Absorbance sample------------------" << endl;
+    //std::cout << "Real position" << position.x << " " << position.y << " " << position.z << endl;
+    vec3 localPosition = position - minBound;
+    //std::cout << "Relative position" << localPosition.x << " " << localPosition.y << " " << localPosition.z << endl;
+    //std::cout << "Scale" << scale.x << " " << scale.y << " " << scale.z << endl;
+    localPosition = localPosition/scale;
+    //std::cout << "Local position" << localPosition.x << " " << localPosition.y << " " << localPosition.z << endl;
+    //std::cout << "---------------------------------------------------------------" << endl;
+
+    float density = Tex3DLookup(localPosition);
+    float beerLambertAbsorbance = BeerLambertIteration(density, 4.0f, SAMPLE_STEP_SIZE);
+    float sun = Phase(direction, localPosition);
+    return beerLambertAbsorbance * sun;
+}
+
 void Draw()
 {
     Intersection intrs;
@@ -201,31 +223,41 @@ void Draw()
 		for( int x=0; x<SCREEN_WIDTH; ++x )
 		{
             vec3 color( 0, 0, 0 );
-
             
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
-
             dir = R*dir;
+            dir = glm::normalize(dir);
             float distToBox;
             float distToExit;
-
-            boundsMin = vec3(130, 0, 65);
-            boundsMax = vec3(290, 165, 272);
             vec3 scale = boundsMax - boundsMin;
 
-            if(BoxIntersection(cameraPos,dir,boundsMin,boundsMax, distToBox,distToExit)){
+            if(BoxIntersection(cameraPos, dir, boundsMin, boundsMax, distToBox, distToExit)){
                 color = vec3(1,1,1);
                 vec3 entry = cameraPos + dir * distToBox;
                 vec3 exit = cameraPos + dir * distToExit;
-                
+                //std::cout << "---------------------------------------------------------------" << endl;
+                //std::cout << entry.x << " " << entry.y << " " << entry.z << endl;
+                //std::cout << exit.x << " " << exit.y << " " << exit.z << endl;
+                //std::cout << "---------------------------------------------------------------" << endl;
                 
                 float distance = glm::distance(entry, exit);
                 vec3 position = entry;
                 float absorbance = 0;
-                while (distance > 0)
+                
+                for(int i = 0; i < 100; i++)
                 {
-                    absorbance += SampleAbsorbance(tex, dir, scale, entry, exit);
+                    if(distance < 0||i >= 1)
+                    {
+                        break;
+                    }
+                    absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax);
+                    position += SAMPLE_STEP_SIZE*dir;
                     distance -= SAMPLE_STEP_SIZE;
+                }
+                
+                if(absorbance != 0)
+                {
+                    std::cout << "Absorbance: " << absorbance << endl;
                 }
                 float transmittance = GetTransmittance(absorbance);
                 color = vec3(transmittance, transmittance, transmittance);
@@ -240,6 +272,29 @@ void Draw()
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+}
+
+//Finds pixels in a 3D textures by looking at the object relative coordinates (ranging from 0 to 1)
+float Tex3DLookup (vec3 relativelocalpos)
+{	
+	ivec3 pixelPosition;
+    pixelPosition.x = relativelocalpos.x * tex.width;
+	pixelPosition.y	= relativelocalpos.y * tex.height;
+	pixelPosition.z = relativelocalpos.z * tex.depth;
+    float pix = tex.GetPixel(pixelPosition);
+    //cout << pixelPosition.x << " " << pixelPosition.y << " " << pixelPosition.z << endl << "********* " << pix << " **********"<< endl;
+	return pix;
+}
+
+//Get Tex3D opacity from Tex3D
+float DensityLookup(vec3 scale, vec3 localposition)
+{
+	return Tex3DLookup(localposition/scale);
+}
+
+float GetTransmittance(float absorbance)
+{
+	return std::pow(10, -absorbance);
 }
 
 // Scattering Functions
@@ -264,15 +319,6 @@ float Phase(vec3 r_dir, vec3 position) {
     
     // Implement extinction
     return (w_1*Henyey(theta,g1)+w_2*Henyey(theta,g2)); // Accumulate functions to fitted scattering
-}
-
-float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit)
-{
-    vec3 localPosition = exit-entry;
-    float density = DensityLookup(texture, scale, localPosition);
-    float beerLambertAbsorbance = BeerLambertIteration(density, 0.1f, SAMPLE_STEP_SIZE);
-    float sun = Phase(direction, localPosition);
-    return beerLambertAbsorbance * sun;
 }
 
 float Ambience(vec3 position, float e) {

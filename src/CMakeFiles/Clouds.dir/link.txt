@@ -1,1 +1,1 @@
-/usr/bin/c++    -rdynamic CMakeFiles/Clouds.dir/raytracer.cpp.o  -o Clouds  -Wl,-Bstatic -lSDLmain -Wl,-Bdynamic -lSDL -lpthread 
+/usr/bin/c++ -rdynamic CMakeFiles/Clouds.dir/raytracer.cpp.o -o Clouds  -Wl,-Bstatic -lSDLmain -Wl,-Bdynamic -lSDL 
