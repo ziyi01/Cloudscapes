@@ -1,12 +1,11 @@
-#include <iostream>
 #include <glm/glm.hpp>
 #include <SDL.h>
 #include "SDLauxiliary.h"
 #include "BeerLambert.h"
 #include <math.h>
-#include "TestModel.h"
+#include "CloudModel.h"
 #include "Textures.h"
-
+#include "Henyey.h"
 
 using namespace std;
 using glm::vec3;
@@ -31,7 +30,6 @@ struct Intersection
 };
 
 vector<Triangle> triangles;
-
 float focalLength = SCREEN_HEIGHT/2;
 vec3 cameraPos( 0,0,-2);
 
@@ -44,7 +42,7 @@ vec3 lightPos( 0, -0.5, -0.7 );
 vec3 lightColor = 14.f * vec3( 1, 1, 1 );
 float radius = 200;
 
-// Inderect lighting
+// Indirect lighting
 vec3 indirectLight = 0.5f*vec3( 1, 1, 1 );
 
 // Anti Aliasing
@@ -52,7 +50,8 @@ int sampleCount = 2;
 
 int counter = 0;
 
-
+vec3 boundsMin = vec3(130, 0, 65);
+vec3 boundsMax = vec3(290, 165, 272);
 Texture3D tex;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
@@ -60,6 +59,10 @@ Texture3D tex;
 void Update();
 void Draw();
 float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit);
+float Henyey(vec3 r_dir, vec3 position);
+float AngleSunRay(vec3 r_dir, vec3 s_dir);
+float Phase(float theta, float g);
+float Ambience(vec3 position, float e);
 
 int main( int argc, char* argv[] )
 {
@@ -77,7 +80,6 @@ int main( int argc, char* argv[] )
     tex = GenerateTexture3D(50, 50, 50);
 	while( NoQuitMessageSDL() )
 	{
-        //break;
         Update();
 	    Draw();
 	}
@@ -138,51 +140,6 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
         return true;
 
 }
-
-
-/*
-vec3 DirectLight(const Intersection& i){
-
-    // n is the normal of the triangle surface
-    vec3 n = triangles[i.triangleIndex].normal;
-
-    // r is the vector from the surface point to the light source
-    vec3 r =  lightPos - i.position;
-
-    // lightDir is the vector from the surface point to the light source
-    vec3 lightDir = (i.position - lightPos);
-
-    //evaluate if shadow
-    Intersection closest;
-
-    if( ClosestIntersection(lightPos, lightDir, triangles, closest) && 
-        Distance(lightPos, closest.position) +0.01 < Distance(lightPos, i.position) &&
-        closest.triangleIndex != i.triangleIndex )
-    {
-        vec3 zero(0,0,0);
-        return zero;
-        
-    }
-
-    // The surface area of the sphere
-    float A = 4*M_PI*glm::length(r)*glm::length(r);
-    
-    // the power per area (W/m^2)
-    vec3 B = lightColor / A;
-
-    // AAA dotn understand entirely
-    float nr = dot(r,n);
-
-    vec3 D;
-    if(nr > 0){
-        D = B * nr;
-    }else {
-        D = B * 0.0f;
-    }
-    
-    return D;
-
-}*/
 
 void Update()
 {
@@ -251,8 +208,8 @@ void Draw()
             float distToBox;
             float distToExit;
 
-            vec3 boundsMin = vec3(130, 0, 65);
-            vec3 boundsMax = vec3(290, 165, 272);
+            boundsMin = vec3(130, 0, 65);
+            boundsMax = vec3(290, 165, 272);
             vec3 scale = boundsMax - boundsMin;
 
             if(BoxIntersection(cameraPos,dir,boundsMin,boundsMax, distToBox,distToExit)){
@@ -284,13 +241,57 @@ void Draw()
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
 
+// Scattering Functions
+/**
+ * @brief 
+ * 
+ * @param r_dir Ray tracer direction
+ * @param s_dir Sun/Light source direction
+ * @return float 
+ */
+float Phase(vec3 r_dir, vec3 position) {
+    // g - [-1,+1] preferred scattering direction.
+    // g > 0 is forward scattering dominant
+    // g = 0 is sideways dominant
+    // g < 0 is backwards scattering dominant
+    vec3 lightDir = lightPos-position;
+    float g1 = 0.8; 
+    float g2 = -0.2;
+    float w_1 = 0.7;  // Distribution of weight, sum of w_i = 1
+    float w_2 = 0.3;
+    float theta = AngleSunRay(r_dir, s_dir);
+    
+    // Implement extinction
+    return (w_1*Henyey(theta,g1)+w_2*Henyey(theta,g2)) * lightColor; // Accumulate functions to fitted scattering
+}
+
 float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entry, vec3 exit)
 {
     vec3 localPosition = exit-entry;
     float density = DensityLookup(texture, scale, localPosition);
     float beerLambertAbsorbance = BeerLambertIteration(density, 0.1f, SAMPLE_STEP_SIZE);
-    float henyeyGreenstein = 1;
-    return beerLambertAbsorbance * henyeyGreenstein;
+    float sun = Phase(direction, localPosition);
+    return beerLambertAbsorbance * sun;
 }
 
+float Ambience(vec3 position, float e) {
+    float height = boundMax.y-position.y;
+    // Assume equal density of ambient lighting
+}
 
+float AngleSunRay(vec3 r_dir, vec3 s_dir) {
+    // Dot angle between ray from camera and sun light direction
+    return acos(dot(r_dir,s_dir)/(length(r_dir)*length(s_dir)));
+}
+
+/**
+ * @brief Single particle scattering events based on Mie theory
+ * 
+ * @param theta - Phase angle between incoming and outgoing directions
+ */
+float Henyey(float theta, float g) { // Adjust g to add more scattering
+    float my = cos(theta);
+    float g2 = g*g;
+    float hg = ((1 - g2) / (4 * M_PI * pow(1 + g2 - (2 * g * my), 3/2)));
+    return hg;
+}
