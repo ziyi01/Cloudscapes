@@ -1,6 +1,8 @@
+#ifndef CLOUD_MODEL
+#define CLOUD_MODEL
+
 #include <glm/glm.hpp>
 #include <vector>
-
 
 class Triangle
 {

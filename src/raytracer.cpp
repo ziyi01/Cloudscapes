@@ -263,7 +263,8 @@ float SampleAbsorbance (Texture3D texture, vec3 direction, vec3 scale, vec3 entr
     vec3 localPosition = exit-entry;
     float density = DensityLookup(texture, scale, localPosition);
     float beerLambertAbsorbance = BeerLambertIteration(density, 0.1f, SAMPLE_STEP_SIZE);
-    float henyeyGreenstein = Henyey(direction, lightPos);
+    vec3 lightDir = lightPos-localPosition;
+    float henyeyGreenstein = Henyey(direction, lightDir);
     return beerLambertAbsorbance * henyeyGreenstein;
 }
 
