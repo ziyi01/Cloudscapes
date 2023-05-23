@@ -1,5 +1,4 @@
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <SDL.h>
 #include "SDLauxiliary.h"
 #include "BeerLambert.h"
@@ -20,7 +19,7 @@ using glm::length;
 
 const int SCREEN_WIDTH = 150;
 const int SCREEN_HEIGHT = 150;
-const float SAMPLE_STEP_SIZE = 3.0f;
+const float SAMPLE_STEP_SIZE = 2.0f;
 SDL_Surface* screen;
 int t;
 
@@ -33,18 +32,17 @@ struct Intersection
 
 vector<Triangle> triangles;
 float focalLength = SCREEN_HEIGHT/2;
-vec3 cameraPos( 0,0,-110);
+vec3 cameraPos( 0,0,-2);
 
 // 4, Rotation variables
 mat3 R;
 float rotationAngle = 0;
 
 // Illumination variables
-vec3 lightPos( -70, -60, 250);
+vec3 lightPos( 0, -0.5, -0.7 );
 float lightBrightness = 0.2;
 float radius = 200;
 float ambientLight = 0.6;
-float dampLight = 0.8;
 
 // Anti Aliasing
 int sampleCount = 2;
@@ -52,8 +50,8 @@ int sampleCount = 2;
 int counter = 0;
 
 NoiseTexture3D tex;
-vec3 boundsMin = vec3(-50, -50, -50);
-vec3 boundsMax = vec3(50, 50, 50);
+vec3 boundsMin = vec3(130, -40, 65);
+vec3 boundsMax = vec3(290, 165, 272);
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
@@ -80,9 +78,6 @@ int main( int argc, char* argv[] )
     vec3 c3 = vec3(0.0, 0.0, 1.0);
     R = mat3(c1, c2, c3);
     tex.GenerateTexture3D(25, 25, 25);
-
-    //cameraPos = boxCenter + glm::vec3(vec3(R[2][0], R[2][1], R[2][2]) * cameraOffset);
-
 	while( NoQuitMessageSDL() )
 	{
         Update();
@@ -116,7 +111,7 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
     }
     else {
         tmin = (boundMax.x - origin.x) * invdir.x;
-        tmax = (boundMin.x - origin.x) * invdir.x;
+        tmax = (boundMax.x - origin.x) * invdir.x;
     }
 
     float tymin;
@@ -164,9 +159,11 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
     if (tzmax < tmax)
         tmax = tzmax;
 
-        if (tmin < 0) {
-            tmin = tmax;
-            if (tmin < 0) return false;
+        float t = tmin;
+
+        if (t < 0) {
+            t = tmax;
+            if (t < 0) return false;
         }
 
         return true;
@@ -180,7 +177,6 @@ void Update()
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
-    //cout << "light pos: (" << lightPos.x << ", " << lightPos.y << ", " << lightPos.z << ")" << endl;
     vec3 forward = R * vec3(0, 0, 1);
     vec3 right = R * vec3(1, 0, 0);
     Uint8* keystate = SDL_GetKeyState( 0 );
@@ -209,22 +205,18 @@ void Update()
         R[2][2] = cos(rotationAngle);
     }
 
-    float moveSpeed = 2.0f;
     if( keystate[SDLK_w] )
-        lightPos += vec3(R[2][0], R[2][1], R[2][2]) * moveSpeed;
+        lightPos += vec3(R[2][0], R[2][1], R[2][2]) * 0.1f;
     if( keystate[SDLK_s] )
-        lightPos -= vec3(R[2][0], R[2][1], R[2][2]) * moveSpeed;
+        lightPos -= vec3(R[2][0], R[2][1], R[2][2]) * 0.1f;
     if( keystate[SDLK_a] )
-        lightPos -= vec3(R[0][0], R[0][1], R[0][2]) * moveSpeed;
+        lightPos -= vec3(R[0][0], R[0][1], R[0][2]) * 0.1f;
     if( keystate[SDLK_d] )
-        lightPos += vec3(R[0][0], R[0][1], R[0][2]) * moveSpeed;
+        lightPos += vec3(R[0][0], R[0][1], R[0][2]) * 0.1f;
     if( keystate[SDLK_e] )
-        lightPos += vec3(R[1][0], R[1][1], R[1][2]) * moveSpeed;
+        lightPos += vec3(R[1][0], R[1][1], R[1][2]) * 0.1f;
     if( keystate[SDLK_q] )
-        lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * moveSpeed;
-
-    if(keystate[SDLK_SPACE])
-        tex.GenerateTexture3D(25, 25, 25);
+        lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 0.1f;
 }
 
 
@@ -241,34 +233,8 @@ float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound
 
     float density = Tex3DLookup(localPosition);
     float beerLambertAbsorbance = BeerLambertIteration(density, 0.005f, SAMPLE_STEP_SIZE);
-    return beerLambertAbsorbance;
-}
-
-float SampleTotalAbsorbance(vec3 position, vec3 direction, vec3 scale, vec3 minBound, vec3 maxBound){
-    vec3 lightPos = position;
-    vec3 lightDir = glm::normalize(position - lightPos);
-    float distToBox;
-    float distToExit;
-    float distance = 0;
-    float absorbance = 0;
-    if(BoxIntersection(position, lightDir, boundsMin, boundsMax, distToBox, distToExit)){
-        distance = distToExit;
-         for(int i = 0; i < 100; i++)
-                {
-                    if(distance < 0)
-                    {
-                        //cout << "i: " << i << endl;
-                        break;
-                    }
-                    absorbance += SampleAbsorbance(lightPos, lightDir, scale, minBound, maxBound);
-
-                    lightPos += SAMPLE_STEP_SIZE*lightDir;
-                    distance -= SAMPLE_STEP_SIZE;
-                }
-    }
-
-    float phase = Phase(direction, position);
-    return absorbance * phase;
+    float phase = Phase(direction, localPosition);
+    return beerLambertAbsorbance * phase;
 }
 
 void Draw()
@@ -309,7 +275,7 @@ void Draw()
                         //cout << "i: " << i << endl;
                         break;
                     }
-                    absorbance += SampleTotalAbsorbance(position, dir, scale, boundsMin, boundsMax);
+                    absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax);
 
                     position += SAMPLE_STEP_SIZE*dir;
                     distance -= SAMPLE_STEP_SIZE;
@@ -321,7 +287,7 @@ void Draw()
                 }
 
                 float transmittance = GetTransmittance(absorbance);
-                color += color*(1-transmittance)*dampLight;
+                color += color*(1-transmittance);
             }
             
             
