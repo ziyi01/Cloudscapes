@@ -54,7 +54,7 @@ int counter = 0;
 NoiseTexture3D tex;
 vec3 boundsMin = vec3(-50, -50, -50);
 vec3 boundsMax = vec3(50, 50, 50);
-const float ATTENUATION = 0.05f;
+const float ATTENUATION = 0.02f;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
@@ -217,7 +217,7 @@ void Update()
     if( keystate[SDLK_e] )
         lightPos += vec3(R[1][0], R[1][1], R[1][2]) * 1.f;
     if( keystate[SDLK_q] )
-        lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 1f;
+        lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 1.f;
     
     if(keystate[SDLK_SPACE])
         tex.GenerateTexture3D(25, 25, 25);
