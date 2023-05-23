@@ -19,7 +19,8 @@ using glm::length;
 
 const int SCREEN_WIDTH = 150;
 const int SCREEN_HEIGHT = 150;
-const float SAMPLE_STEP_SIZE = 2.0f;
+const float OBJECT_MARCH_SAMPLE_STEP_SIZE = 2.0f;
+const float LIGHT_MARCH_SAMPLE_STEP_SIZE = 2.0f;
 SDL_Surface* screen;
 int t;
 
@@ -50,8 +51,10 @@ int sampleCount = 2;
 int counter = 0;
 
 NoiseTexture3D tex;
-vec3 boundsMin = vec3(130, -40, 65);
-vec3 boundsMax = vec3(290, 165, 272);
+vec3 boundsMin = vec3(30, -20, 30);
+vec3 boundsMax = vec3(50, 20, 50);
+
+const float ATTENUATION = 0.05f;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
@@ -182,15 +185,15 @@ void Update()
     Uint8* keystate = SDL_GetKeyState( 0 );
     if( keystate[SDLK_UP] )
     {
-        cameraPos += vec3(R[2][0], R[2][1], R[2][2]) * 2.0f;
+        cameraPos += vec3(R[2][0], R[2][1], R[2][2]) * 1.0f;
     }
     if( keystate[SDLK_DOWN] )
     {
-        cameraPos -= vec3(R[2][0], R[2][1], R[2][2]) * 2.0f;
+        cameraPos -= vec3(R[2][0], R[2][1], R[2][2]) * 1.0f;
     }
     if( keystate[SDLK_LEFT] )
     {
-        rotationAngle += 0.05;
+        rotationAngle += 0.02;
         R[0][0] = cos(rotationAngle);
         R[0][2] = sin(rotationAngle);
         R[2][0] = -sin(rotationAngle);
@@ -198,7 +201,7 @@ void Update()
     }
     if( keystate[SDLK_RIGHT] )
     {
-        rotationAngle -= 0.05;
+        rotationAngle -= 0.02;
         R[0][0] = cos(rotationAngle);
         R[0][2] = sin(rotationAngle);
         R[2][0] = -sin(rotationAngle);
@@ -206,21 +209,37 @@ void Update()
     }
 
     if( keystate[SDLK_w] )
-        lightPos += vec3(R[2][0], R[2][1], R[2][2]) * 0.1f;
+        lightPos += vec3(R[2][0], R[2][1], R[2][2]) * 1.f;
     if( keystate[SDLK_s] )
-        lightPos -= vec3(R[2][0], R[2][1], R[2][2]) * 0.1f;
+        lightPos -= vec3(R[2][0], R[2][1], R[2][2]) * 1.f;
     if( keystate[SDLK_a] )
-        lightPos -= vec3(R[0][0], R[0][1], R[0][2]) * 0.1f;
+        lightPos -= vec3(R[0][0], R[0][1], R[0][2]) * 1.f;
     if( keystate[SDLK_d] )
-        lightPos += vec3(R[0][0], R[0][1], R[0][2]) * 0.1f;
+        lightPos += vec3(R[0][0], R[0][1], R[0][2]) * 1.f;
     if( keystate[SDLK_e] )
-        lightPos += vec3(R[1][0], R[1][1], R[1][2]) * 0.1f;
+        lightPos += vec3(R[1][0], R[1][1], R[1][2]) * 1.f;
     if( keystate[SDLK_q] )
-        lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 0.1f;
+        lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 1.f;
 }
 
+//inner function for SampleAbsorbance. performs light pass from current position towards lightsource
+float SampleLightAbsorbance (vec3 position, vec3 lightposition, vec3 scale, vec3 minBound, vec3 maxBound)
+{
+    vec3 direction = lightposition - position;
+    vec3 localPosition = position - minBound;
+    localPosition = localPosition/scale;
 
-float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound, vec3 maxBound)
+    float absorbance = 0;
+    for(int i = 0; i < 10; i++)
+    {
+        float density = Tex3DLookup(localPosition);
+        absorbance += BeerLambertIteration(density, ATTENUATION, LIGHT_MARCH_SAMPLE_STEP_SIZE);
+        position += direction*LIGHT_MARCH_SAMPLE_STEP_SIZE;
+    }
+    return absorbance;
+}
+
+float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound, vec3 maxBound, float &shadeAbsorption)
 {
     //std::cout << "------------------Debug for Absorbance sample------------------" << endl;
     //std::cout << "Real position" << position.x << " " << position.y << " " << position.z << endl;
@@ -232,10 +251,13 @@ float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound
     //std::cout << "---------------------------------------------------------------" << endl;
 
     float density = Tex3DLookup(localPosition);
-    float beerLambertAbsorbance = BeerLambertIteration(density, 0.005f, SAMPLE_STEP_SIZE);
+    float beerLambertAbsorbance = BeerLambertIteration(density, ATTENUATION, OBJECT_MARCH_SAMPLE_STEP_SIZE);
     float phase = Phase(direction, localPosition);
+    shadeAbsorption = SampleLightAbsorbance(position, lightPos, scale, minBound, maxBound);
     return beerLambertAbsorbance * phase;
 }
+
+
 
 void Draw()
 {
@@ -255,6 +277,7 @@ void Draw()
             float distToBox;
             float distToExit;
             vec3 scale = boundsMax - boundsMin;
+            float shadeAbsorption = 0;
 
             if(BoxIntersection(cameraPos, dir, boundsMin, boundsMax, distToBox, distToExit)){
                 vec3 entry = cameraPos + dir * distToBox;
@@ -268,6 +291,7 @@ void Draw()
                 vec3 position = entry;
                 float absorbance = 0;
                 
+                //Set a higher bound so we don't lose control of this loop
                 for(int i = 0; i < 100; i++)
                 {
                     if(distance < 0)
@@ -275,22 +299,24 @@ void Draw()
                         //cout << "i: " << i << endl;
                         break;
                     }
-                    absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax);
+                    absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax, shadeAbsorption);
 
-                    position += SAMPLE_STEP_SIZE*dir;
-                    distance -= SAMPLE_STEP_SIZE;
+                    position += OBJECT_MARCH_SAMPLE_STEP_SIZE*dir;
+                    distance -= OBJECT_MARCH_SAMPLE_STEP_SIZE;
                 }
                 
                 if(absorbance != 0)
                 {
                     //std::cout << "Absorbance: " << absorbance << endl;
                 }
-
+            
                 float transmittance = GetTransmittance(absorbance);
+                float shadeTransmittance = GetTransmittance(shadeAbsorption);
                 color += color*(1-transmittance);
+                //color -= vec3(1-shadeTransmittance); Does not work in the slightest
             }
             
-            
+
 			PutPixelSDL( screen, x, y, color );
 		}
 	}
