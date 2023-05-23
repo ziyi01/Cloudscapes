@@ -222,7 +222,7 @@ void Update()
         lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 1.f;
 }
 
-//inner function for SampleAbsorbance. performs light pass from current position towards lightsource
+//inner function for SampleAbsorbance. calculates extinction of light
 float SampleLightAbsorbance (vec3 position, vec3 lightposition, vec3 scale, vec3 minBound, vec3 maxBound)
 {
     vec3 direction = lightposition - position;
@@ -233,7 +233,7 @@ float SampleLightAbsorbance (vec3 position, vec3 lightposition, vec3 scale, vec3
     for(int i = 0; i < 10; i++)
     {
         float density = Tex3DLookup(localPosition);
-        absorbance += BeerLambertIteration(density, ATTENUATION, LIGHT_MARCH_SAMPLE_STEP_SIZE);
+        absorbance = BeerLambertIteration(density, ATTENUATION, LIGHT_MARCH_SAMPLE_STEP_SIZE);
         position += direction*LIGHT_MARCH_SAMPLE_STEP_SIZE;
     }
     return absorbance;
@@ -253,7 +253,7 @@ float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound
     float density = Tex3DLookup(localPosition);
     float beerLambertAbsorbance = BeerLambertIteration(density, ATTENUATION, OBJECT_MARCH_SAMPLE_STEP_SIZE);
     float phase = Phase(direction, localPosition);
-    shadeAbsorption = SampleLightAbsorbance(position, lightPos, scale, minBound, maxBound);
+    shadeAbsorption *= exp(SampleLightAbsorbance(position, lightPos, scale, minBound, maxBound) * LIGHT_MARCH_SAMPLE_STEP_SIZE);
     return beerLambertAbsorbance * phase;
 }
 
@@ -277,7 +277,7 @@ void Draw()
             float distToBox;
             float distToExit;
             vec3 scale = boundsMax - boundsMin;
-            float shadeAbsorption = 0;
+            float shadeAbsorption = 1.f;
 
             if(BoxIntersection(cameraPos, dir, boundsMin, boundsMax, distToBox, distToExit)){
                 vec3 entry = cameraPos + dir * distToBox;
@@ -299,7 +299,7 @@ void Draw()
                         //cout << "i: " << i << endl;
                         break;
                     }
-                    absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax, shadeAbsorption);
+                    absorbance += shadeAbsorption * SampleAbsorbance(position, dir, scale, boundsMin, boundsMax, shadeAbsorption);
 
                     position += OBJECT_MARCH_SAMPLE_STEP_SIZE*dir;
                     distance -= OBJECT_MARCH_SAMPLE_STEP_SIZE;
@@ -307,11 +307,10 @@ void Draw()
                 
                 if(absorbance != 0)
                 {
-                    //std::cout << "Absorbance: " << absorbance << endl;
+                    std::cout << "Absorbance: " << absorbance << endl;
                 }
             
                 float transmittance = GetTransmittance(absorbance);
-                float shadeTransmittance = GetTransmittance(shadeAbsorption);
                 color += color*(1-transmittance);
                 //color -= vec3(1-shadeTransmittance); Does not work in the slightest
             }

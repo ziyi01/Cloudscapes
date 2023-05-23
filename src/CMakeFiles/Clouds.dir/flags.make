@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/usr/include/SDL -I/mnt/c/Users/Keidu/Documents/Github/Cloudscapes/src/glm
+CXX_INCLUDES = -I/usr/include/SDL -I/mnt/c/Users/julia/Documents/GitHub/Cloudscapes/src/glm
 
 CXX_FLAGS = 
 
