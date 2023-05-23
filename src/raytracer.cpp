@@ -32,7 +32,7 @@ struct Intersection
 
 vector<Triangle> triangles;
 float focalLength = SCREEN_HEIGHT/2;
-vec3 cameraPos( 0,0,-2);
+vec3 cameraPos( 0,0,-110);
 
 // 4, Rotation variables
 mat3 R;
@@ -43,6 +43,7 @@ vec3 lightPos( 0, -0.5, -0.7 );
 float lightBrightness = 0.2;
 float radius = 200;
 float ambientLight = 0.6;
+float dampLight = 0.9;
 
 // Anti Aliasing
 int sampleCount = 2;
@@ -50,8 +51,8 @@ int sampleCount = 2;
 int counter = 0;
 
 NoiseTexture3D tex;
-vec3 boundsMin = vec3(130, -40, 65);
-vec3 boundsMax = vec3(290, 165, 272);
+vec3 boundsMin = vec3(-50, -50, -50);
+vec3 boundsMax = vec3(50, 50, 50);
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
@@ -111,7 +112,7 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
     }
     else {
         tmin = (boundMax.x - origin.x) * invdir.x;
-        tmax = (boundMax.x - origin.x) * invdir.x;
+        tmax = (boundMin.x - origin.x) * invdir.x;
     }
 
     float tymin;
@@ -159,11 +160,9 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
     if (tzmax < tmax)
         tmax = tzmax;
 
-        float t = tmin;
-
-        if (t < 0) {
-            t = tmax;
-            if (t < 0) return false;
+        if (tmin < 0) {
+            tmin = tmax;
+            if (tmax < 0) return false;
         }
 
         return true;
@@ -217,6 +216,9 @@ void Update()
         lightPos += vec3(R[1][0], R[1][1], R[1][2]) * 0.1f;
     if( keystate[SDLK_q] )
         lightPos -= vec3(R[1][0], R[1][1], R[1][2]) * 0.1f;
+    
+    if(keystate[SDLK_SPACE])
+        tex.GenerateTexture3D(25, 25, 25);
 }
 
 
@@ -287,7 +289,7 @@ void Draw()
                 }
 
                 float transmittance = GetTransmittance(absorbance);
-                color += color*(1-transmittance);
+                color += color*(1-transmittance)*dampLight;;
             }
             
             
