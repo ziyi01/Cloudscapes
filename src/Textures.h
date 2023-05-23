@@ -109,6 +109,10 @@ class NoiseTexture3D
                         d = 1;
                     }
                     //std::cout << d << "-";
+                    int dPow = 1;
+                    float dTemp = d;
+                    for(int i = 0; i < dPow; i++)
+                        d*=dTemp;
                     SetPixel(ivec3(x, y, z), d);
                 }
                 //std::cout << endl << "------------------------------------------------------------------"<< endl;
