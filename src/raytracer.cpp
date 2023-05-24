@@ -40,7 +40,7 @@ mat3 R;
 float rotationAngle = 0;
 
 // Illumination variables
-vec3 lightPos( 0, -0.5, -0.7 );
+vec3 lightPos( -80, 0,0);
 float lightBrightness = 0.2;
 float radius = 200;
 float ambientLight = 0.6;
@@ -54,7 +54,7 @@ int counter = 0;
 NoiseTexture3D tex;
 vec3 boundsMin = vec3(-50, -50, -50);
 vec3 boundsMax = vec3(50, 50, 50);
-const float ATTENUATION = 0.02f;
+const float ATTENUATION = 0.05f;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
@@ -226,17 +226,35 @@ void Update()
 //inner function for SampleAbsorbance. performs light pass from current position towards lightsource
 float SampleLightAbsorbance (vec3 position, vec3 lightposition, vec3 scale, vec3 minBound, vec3 maxBound)
 {
-    vec3 direction = lightposition - position;
+    vec3 lightDirection = glm::normalize(lightposition - position);
+    
     vec3 localPosition = position - minBound;
     localPosition = localPosition/scale;
 
+    float distToBox;
+    float distToExit;
+    float distance = 0;
     float absorbance = 0;
-    for(int i = 0; i < 10; i++)
-    {
-        float density = Tex3DLookup(localPosition);
-        absorbance += BeerLambertIteration(density, ATTENUATION, LIGHT_MARCH_SAMPLE_STEP_SIZE);
-        position += direction*LIGHT_MARCH_SAMPLE_STEP_SIZE;
+
+    if(BoxIntersection(localPosition, lightDirection, boundsMin, boundsMax, distToBox, distToExit)){
+        distance = distToExit;
+        //cout << "distance: " << distance << endl;
+        for(int i = 0; i < 50; i++)
+        {
+            if(distance < 0)
+            {
+                //cout << "i: " << i << endl;
+                //cout << "i: " << i << endl;
+                break;
+            }
+            
+            float density = Tex3DLookup(localPosition);
+            absorbance += BeerLambertIteration(density, ATTENUATION, LIGHT_MARCH_SAMPLE_STEP_SIZE);
+            localPosition += LIGHT_MARCH_SAMPLE_STEP_SIZE*lightDirection;
+            distance -= LIGHT_MARCH_SAMPLE_STEP_SIZE;
+        }
     }
+    //cout << "abs: " << absorbance << endl;
     return absorbance;
 }
 
@@ -290,7 +308,9 @@ void Draw()
                 
                 float distance = glm::distance(entry, exit);
                 vec3 position = entry;
-                float absorbance = 0;
+                float adjustedAbsorbance = 0;
+                float lightAbsorb = 0;
+                float totalAbsorbance = 0;
                 
                 //Set a higher bound so we don't lose control of this loop
                 for(int i = 0; i < 100; i++)
@@ -300,21 +320,36 @@ void Draw()
                         //cout << "i: " << i << endl;
                         break;
                     }
-                    absorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax, shadeAbsorption);
+                    float absorb = SampleAbsorbance(position, dir, scale, boundsMin, boundsMax, shadeAbsorption);
+                    totalAbsorbance += absorb;
+                    adjustedAbsorbance += absorb * shadeAbsorption;
+                    lightAbsorb += shadeAbsorption;
 
                     position += OBJECT_MARCH_SAMPLE_STEP_SIZE*dir;
                     distance -= OBJECT_MARCH_SAMPLE_STEP_SIZE;
                 }
                 
-                if(absorbance != 0)
+                if(totalAbsorbance != 0)
                 {
                     //std::cout << "Absorbance: " << absorbance << endl;
                 }
             
-                float transmittance = GetTransmittance(absorbance);
-                float shadeTransmittance = GetTransmittance(shadeAbsorption);
-                color += color*(1-transmittance)*dampLight;
-                //color -= vec3(1-shadeTransmittance); Does not work in the slightest
+                float transmittance = GetTransmittance(adjustedAbsorbance);
+                float testTransmittance = GetTransmittance(totalAbsorbance);
+
+                float shadeTransmittance = GetTransmittance(lightAbsorb);
+
+                // color += transmittance * (cloud color * (shade color * shadetransmittance );
+                color += (1-transmittance) * (vec3(1,1,1));
+                color -= (1-testTransmittance)*(vec3(1,1,1) * (shadeTransmittance));
+                
+                //cout << "shade: " << shadeTransmittance << "and: " << transmittance << endl;
+                /*float shadeColor = (1-(transmittance))*shadeTransmittance; //Does not work in the slightest
+                float cloudColor = (1-transmittance)*dampLight;
+                color += vec3(1,1,1)*(1-transmittance)*dampLight;
+                color -= vec3(1,1,1)*(transmittance - shadeTransmittance);*/
+                //color += cloudColor; //Does not work in the slightest
+
             }
             
 
