@@ -20,7 +20,7 @@ using glm::length;
 const int SCREEN_WIDTH = 150;
 const int SCREEN_HEIGHT = 150;
 const float OBJECT_MARCH_SAMPLE_STEP_SIZE = 2.0f;
-const float LIGHT_MARCH_SAMPLE_STEP_SIZE = 2.0f;
+const float LIGHT_MARCH_SAMPLE_STEP_SIZE = 3.0f;
 SDL_Surface* screen;
 int t;
 
@@ -35,26 +35,23 @@ vector<Triangle> triangles;
 float focalLength = SCREEN_HEIGHT/2;
 vec3 cameraPos( 0,0,-110);
 
-// 4, Rotation variables
+// Rotation variables
 mat3 R;
 float rotationAngle = 0;
 
 // Illumination variables
-vec3 lightPos( -80, 0,0);
+vec3 lightPos( -60, 0,0);
 float lightBrightness = 0.2;
 float radius = 200;
 float ambientLight = 0.6;
 float dampLight = 0.9;
 
-// Anti Aliasing
-int sampleCount = 2;
-
-int counter = 0;
 
 NoiseTexture3D tex;
 vec3 boundsMin = vec3(-50, -50, -50);
 vec3 boundsMax = vec3(50, 50, 50);
-const float ATTENUATION = 0.05f;
+const float ATTENUATION = 0.08f;
+const vec3 SHADE = vec3(0.2f,0.2f,0.2f);
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
@@ -163,6 +160,7 @@ bool BoxIntersection(const vec3 origin, const vec3 dir, const vec3 boundMin, con
         tmax = tzmax;
 
         if (tmin < 0) {
+            //cout << "light!" << endl;
             tmin = tmax;
             if (tmax < 0) return false;
         }
@@ -228,16 +226,16 @@ float SampleLightAbsorbance (vec3 position, vec3 lightposition, vec3 scale, vec3
 {
     vec3 lightDirection = glm::normalize(lightposition - position);
     
-    vec3 localPosition = position - minBound;
-    localPosition = localPosition/scale;
 
     float distToBox;
     float distToExit;
     float distance = 0;
     float absorbance = 0;
 
-    if(BoxIntersection(localPosition, lightDirection, boundsMin, boundsMax, distToBox, distToExit)){
-        distance = distToExit;
+    if(BoxIntersection(position, lightDirection, boundsMin, boundsMax, distToBox, distToExit)){
+        vec3 exit = position + lightDirection * distToExit;
+        //std::cout << "exit: " << exit.x << " " << exit.y << " " << exit.z << endl;
+        float distance = glm::distance(position, exit);
         //cout << "distance: " << distance << endl;
         for(int i = 0; i < 50; i++)
         {
@@ -247,9 +245,14 @@ float SampleLightAbsorbance (vec3 position, vec3 lightposition, vec3 scale, vec3
                 //cout << "i: " << i << endl;
                 break;
             }
+
+            vec3 localPosition = position - minBound;
+            //std::cout << "Relative position" << localPosition.x << " " << localPosition.y << " " << localPosition.z << endl;
+            //std::cout << "Scale" << scale.x << " " << scale.y << " " << scale.z << endl;
+            localPosition = localPosition/scale;
             
             float density = Tex3DLookup(localPosition);
-            absorbance += BeerLambertIteration(density, ATTENUATION, LIGHT_MARCH_SAMPLE_STEP_SIZE);
+            absorbance += BeerLambertIteration(density, ATTENUATION, LIGHT_MARCH_SAMPLE_STEP_SIZE)*0.01f;
             localPosition += LIGHT_MARCH_SAMPLE_STEP_SIZE*lightDirection;
             distance -= LIGHT_MARCH_SAMPLE_STEP_SIZE;
         }
@@ -272,7 +275,8 @@ float SampleAbsorbance (vec3 position, vec3 direction, vec3 scale, vec3 minBound
     float density = Tex3DLookup(localPosition);
     float beerLambertAbsorbance = BeerLambertIteration(density, ATTENUATION, OBJECT_MARCH_SAMPLE_STEP_SIZE);
     float phase = Phase(direction, localPosition);
-    shadeAbsorption = SampleLightAbsorbance(position, lightPos, scale, minBound, maxBound);
+    if(density > 0.0 )
+        shadeAbsorption = SampleLightAbsorbance(position, lightPos, scale, minBound, maxBound);
     return beerLambertAbsorbance * phase;
 }
 
@@ -315,14 +319,17 @@ void Draw()
                 //Set a higher bound so we don't lose control of this loop
                 for(int i = 0; i < 100; i++)
                 {
+                    shadeAbsorption = 0;
                     if(distance < 0)
                     {
                         //cout << "i: " << i << endl;
                         break;
                     }
-                    float absorb = SampleAbsorbance(position, dir, scale, boundsMin, boundsMax, shadeAbsorption);
-                    totalAbsorbance += absorb;
-                    adjustedAbsorbance += absorb * shadeAbsorption;
+                    totalAbsorbance += SampleAbsorbance(position, dir, scale, boundsMin, boundsMax, shadeAbsorption);
+                    
+                    if (totalAbsorbance == 1){
+                        break;
+                    }
                     lightAbsorb += shadeAbsorption;
 
                     position += OBJECT_MARCH_SAMPLE_STEP_SIZE*dir;
@@ -334,14 +341,14 @@ void Draw()
                     //std::cout << "Absorbance: " << absorbance << endl;
                 }
             
-                float transmittance = GetTransmittance(adjustedAbsorbance);
-                float testTransmittance = GetTransmittance(totalAbsorbance);
+                float transmittance = GetTransmittance(totalAbsorbance);
 
                 float shadeTransmittance = GetTransmittance(lightAbsorb);
 
+
                 // color += transmittance * (cloud color * (shade color * shadetransmittance );
                 color += (1-transmittance) * (vec3(1,1,1));
-                color -= (1-testTransmittance)*(vec3(1,1,1) * (shadeTransmittance));
+                color -= ((vec3(1,1,1) + SHADE)  * (1-shadeTransmittance));
                 
                 //cout << "shade: " << shadeTransmittance << "and: " << transmittance << endl;
                 /*float shadeColor = (1-(transmittance))*shadeTransmittance; //Does not work in the slightest
